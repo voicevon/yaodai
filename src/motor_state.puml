@@ -1,0 +1,9 @@
+@startuml
+
+[*] --> disabled
+disabled --> viberate
+viberate -> slient
+slient -> viberate
+disabled <-- slient 
+
+@enduml

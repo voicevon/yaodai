@@ -3,6 +3,8 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
+#include "motor.h"
+
 #define PIN_LED 19
 #define PIN_LED_B 18
 #define PIN_MOTOR_A 13 
@@ -21,6 +23,10 @@
 #define PIN_I2C_SCL 23
 
 Adafruit_MPU6050 mpu;
+Motor motor_a(PIN_MOTOR_A);
+Motor motor_b(PIN_MOTOR_B);
+Motor motor_c(PIN_MOTOR_C);
+Motor motor_f(PIN_MOTOR_F);
 
 void setup_mpu6050(TwoWire* wire) {
 	
@@ -97,6 +103,14 @@ void setup_mpu6050(TwoWire* wire) {
 
   }
 
+void setup_motors(){
+	motor_a.SetVibrate(200, 500);	
+	motor_b.SetVibrate(200, 500);
+	motor_c.SetVibrate(200, 500);
+	motor_f.SetVibrate(200, 500);
+	
+}
+
 void setup() {
 	Serial.begin(115200);
 	Serial.printf("Hello, Yaodai!\n");
@@ -126,10 +140,8 @@ void setup() {
 	Serial.printf("Setup is done.\n");
 }
 
-
-void loop() {
-
-
+void loop_test_mpu6050() {
+	
 	/* Get new sensor events with the readings */
 	sensors_event_t a, g, temp;
 	mpu.getEvent(&a, &g, &temp);
@@ -143,7 +155,7 @@ void loop() {
 	Serial.print(", Z: ");
 	Serial.print(a.acceleration.z);
 	Serial.println(" m/s^2");
-  
+
   
 	Serial.print("Rotation X: ");
 	Serial.print(g.gyro.x);
@@ -161,5 +173,12 @@ void loop() {
   
 	Serial.println("");
 	delay(500);
-  }
+}
+
+void loop() {
+	sensors_event_t a, g, temp;
+	mpu.getEvent(&a, &g, &temp);
+	if (a.acceleration.x > 10) {
+	}
+}
   
