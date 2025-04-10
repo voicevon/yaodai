@@ -11,13 +11,15 @@ class Motor {
         };
 
         Motor(int pin_num);
-        void Enable(bool is_enable);
+        void Start();
+        void Stop();
         void SetVibrate(int viberate_ms, int silient_ms);
         void SpinOnce();
         State GetState(){return state_;}
 
 
     private:
+        void Enable_(bool is_enable);
         int pin_num_;
         bool is_enabled_;
         int viberate_ms_;

@@ -7,10 +7,10 @@
 
 #define PIN_LED 19
 #define PIN_LED_B 18
-#define PIN_MOTOR_A 13 
-#define PIN_MOTOR_B 14 
-#define PIN_MOTOR_C 33 
-#define PIN_MOTOR_F 32 
+#define PIN_MOTOR_FRONT 13 
+#define PIN_MOTOR_REAR 14 
+#define PIN_MOTOR_LEFT 33 
+#define PIN_MOTOR_RIGHT 32 
 
 //   // 如果高电平，会关闭自己（ESP32掉电)。
 #define PIN_POWER 25 // 控制总供电。
@@ -23,10 +23,17 @@
 #define PIN_I2C_SCL 23
 
 Adafruit_MPU6050 mpu;
-Motor motor_a(PIN_MOTOR_A);
-Motor motor_b(PIN_MOTOR_B);
-Motor motor_c(PIN_MOTOR_C);
-Motor motor_f(PIN_MOTOR_F);
+Motor motor_front(PIN_MOTOR_FRONT);
+Motor motor_rear(PIN_MOTOR_REAR);
+Motor motor_left(PIN_MOTOR_LEFT);
+Motor motor_right(PIN_MOTOR_RIGHT);
+
+void stop_all_motors(){
+	motor_front.Stop();
+	motor_rear.Stop();
+	motor_left.Stop();
+	motor_right.Stop();
+}
 
 void setup_mpu6050(TwoWire* wire) {
 	
@@ -104,10 +111,10 @@ void setup_mpu6050(TwoWire* wire) {
   }
 
 void setup_motors(){
-	motor_a.SetVibrate(200, 500);	
-	motor_b.SetVibrate(200, 500);
-	motor_c.SetVibrate(200, 500);
-	motor_f.SetVibrate(200, 500);
+	motor_front.SetVibrate(200, 500);	
+	motor_rear.SetVibrate(200, 500);
+	motor_left.SetVibrate(200, 500);
+	motor_right.SetVibrate(200, 500);
 	
 }
 
@@ -116,14 +123,11 @@ void setup() {
 	Serial.printf("Hello, Yaodai!\n");
 	pinMode(PIN_LED, OUTPUT);
 	pinMode(PIN_LED_B, OUTPUT);
-	pinMode(PIN_MOTOR_A, OUTPUT); 
-	pinMode(PIN_MOTOR_B, OUTPUT);
-	pinMode(PIN_MOTOR_C, OUTPUT);
-	pinMode(PIN_MOTOR_F, OUTPUT);
+
 	pinMode(PIN_POWER, OUTPUT); 
 	pinMode(PIN_BUZZER, OUTPUT);
 	pinMode(PIN_TOUCH, INPUT);
-
+	stop_all_motors();
 	Serial.printf("pinMode is done.\n");
 
 	// 初始化 MPU6050
@@ -175,10 +179,18 @@ void loop_test_mpu6050() {
 	delay(500);
 }
 
+
+
+void loop_test_motors(){
+	
+}
 void loop() {
 	sensors_event_t a, g, temp;
 	mpu.getEvent(&a, &g, &temp);
 	if (a.acceleration.x > 10) {
+		motor_front.Start();
+	}else if(a.acceleration.x < -10){
+		motor_front.Stop();	
 	}
 }
   

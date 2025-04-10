@@ -35,7 +35,14 @@ Motor::Motor(int pin_num){
   last_timestamp_ = 0;
 }
 
-void Motor::Enable(bool is_enable){
+void Motor::Start(){
+  Enable_(true);
+}
+
+void Motor::Stop(){
+  Enable_(false);  
+}
+void Motor::Enable_(bool is_enable){
   if(is_enable){
     state_ = VIBERATING;
     digitalWrite(pin_num_, HIGH);
