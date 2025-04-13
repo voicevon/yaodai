@@ -22,6 +22,8 @@
 #define PIN_I2C_SDA 22
 #define PIN_I2C_SCL 23
 
+#define PIN_DOCKER 27   
+
 Adafruit_MPU6050 mpu;
 Motor motor_front(PIN_MOTOR_FRONT);
 Motor motor_rear(PIN_MOTOR_REAR);
@@ -35,10 +37,13 @@ void stop_all_motors(){
 	motor_right.Stop();
 }
 
-void setup_mpu6050(TwoWire* wire) {
-	
+TwoWire my_bus_0(0);
+TwoWire my_bus_1(1);
+
+void setup_mpu6050(TwoWire* wire, int addr) {
 	// Try to initialize!
-	if (!mpu.begin(0x68, wire)) {
+	// if (!mpu.begin(0x68, wire)) {
+	if (!mpu.begin(addr, wire)) {
 	  Serial.println("Failed to find MPU6050 chip");
 	  while (1) {
 		delay(10);
@@ -125,27 +130,34 @@ void setup() {
 	pinMode(PIN_LED_B, OUTPUT);
 
 	pinMode(PIN_POWER, OUTPUT); 
+	digitalWrite(PIN_POWER, LOW); // 高电平 关闭系统。
 	pinMode(PIN_BUZZER, OUTPUT);
 	pinMode(PIN_TOUCH, INPUT);
+	pinMode(PIN_DOCKER, INPUT);
 	stop_all_motors();
 	Serial.printf("pinMode is done.\n");
 
 	// 初始化 MPU6050
-	Wire.begin(21, 22); // SDA, SCL
-	Wire.setClock(100000); // 100kHz
+	my_bus_0.begin(PIN_I2C_SDA, PIN_I2C_SCL); 
+	my_bus_0.setClock(100000); // 100kHz
 
+	my_bus_1.begin(17, 16); 
+	my_bus_1.setClock(100000); // 100kHz
 	// 检查 I2C 总线是否正常
 	// if (Wire.beginTransmission(0x68) == 0) { // MPU6050 的 I2C 地址是 0x68
 	// 	Serial.println("MPU6050 found!");
 	// }		
-	setup_mpu6050(&Wire);
+	setup_mpu6050(&my_bus_0, 0x68);  // 0x68 是 front 的地址    
+	// setup_mpu6050(&my_bus_0, 0x69);	// 0x69 是 right 的地址
+	// setup_mpu6050(&my_bus_1, 0x69);  // 0x69 是 rear 的地址
+	// setup_mpu6050(&my_bus_1, 0x68);  // 0x68 是 left 的地址
+				
 
 	// 初始化完成
 	Serial.printf("Setup is done.\n");
 }
 
 void loop_test_mpu6050() {
-	
 	/* Get new sensor events with the readings */
 	sensors_event_t a, g, temp;
 	mpu.getEvent(&a, &g, &temp);
@@ -182,15 +194,76 @@ void loop_test_mpu6050() {
 
 
 void loop_test_motors(){
-	
+	#define VIB_TIME 50
+	#define SIL_TIME 1000
+	Serial.printf("front motor    ");
+	motor_front.Start();
+	delay(VIB_TIME);
+	motor_front.Stop();
+	delay(SIL_TIME);
+
+	Serial.printf("right motor    ");
+	motor_right.Start();
+	delay(VIB_TIME);
+	motor_right.Stop();
+	delay(SIL_TIME);
+
+	Serial.printf("rear motor    ");
+	motor_rear.Start();
+	delay(VIB_TIME);
+	motor_rear.Stop();
+	delay(SIL_TIME);
+
+	Serial.printf("left motor     ");
+	motor_left.Start();
+	delay(VIB_TIME);
+	motor_left.Stop();
+	delay(SIL_TIME);
 }
-void loop() {
-	sensors_event_t a, g, temp;
-	mpu.getEvent(&a, &g, &temp);
-	if (a.acceleration.x > 10) {
-		motor_front.Start();
-	}else if(a.acceleration.x < -10){
-		motor_front.Stop();	
+
+void loop_test_touch_leds(){
+	if(digitalRead(PIN_TOUCH) == HIGH){
+		// Serial.printf("touch is HIGH\n");
+		digitalWrite(PIN_LED, LOW);		//低电平 灯亮。
+	}else{	
+		digitalWrite(PIN_LED, HIGH);
 	}
+
+	if(digitalRead(PIN_DOCKER) == HIGH){
+		// Serial.printf("touch is HIGH\n");
+		digitalWrite(PIN_LED_B, LOW);		//低电平 灯亮。
+	}else{	
+		digitalWrite(PIN_LED_B, HIGH);
+	}
+
+}
+
+void touch_power_off(){
+	static int kept_touched_from = 0;
+	if(digitalRead(PIN_TOUCH) == HIGH){
+		if (millis() - kept_touched_from > 1000) {
+			// 如果触摸次数超过 1 秒，关闭系统，包括 ESP32
+			Serial.printf("touch is HIGH for 1 second, power off now.\n");
+			digitalWrite(PIN_POWER, HIGH);	// 高电平 关闭系统。
+		}
+	}else{	
+		kept_touched_from = millis();
+	}
+}
+
+void loop() {
+	touch_power_off();
+	// loop_test_mpu6050();
+	loop_test_motors();
+	loop_test_touch_leds();
+
+
+	// sensors_event_t a, g, temp;
+	// mpu.getEvent(&a, &g, &temp);
+	// if (a.acceleration.x > 10) {
+	// 	motor_front.Start();
+	// }else if(a.acceleration.x < -10){
+	// 	motor_front.Stop();	
+	// }
 }
   
