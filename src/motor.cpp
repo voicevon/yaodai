@@ -17,7 +17,8 @@ void Motor::SpinOnce()
 {
   if (state_ == IDLE)
   {
-    return;
+      digitalWrite(pin_num_, LOW);
+      return;
   }
   else if (state_ == VIBERATING)
   {
@@ -39,35 +40,27 @@ void Motor::SpinOnce()
   }
 }
 
-void Motor::Start(){
-    state_ = VIBERATING;
-    digitalWrite(pin_num_, HIGH);
-    last_timestamp_ = millis();
-}
 
-void Motor::Stop(){
-    state_ = IDLE;
-    digitalWrite(pin_num_, LOW);
-    last_timestamp_ = millis();
-}
-void Motor::Enable_(bool is_enable)
-{
-  if (is_enable)
-  {
-    state_ = VIBERATING;
-    digitalWrite(pin_num_, LOW);
-  }
-  else
-  {
-    state_ = IDLE;
-    digitalWrite(pin_num_, HIGH);
-  }
-  last_timestamp_ = millis();
-}
 
-void Motor::SetVibrate(int viberate_ms, int total_period)
+void Motor::SetVibrate(int viberate_ms)
 {
   viberate_ms_ = viberate_ms;
-  total_period_ = total_period;
+  if (viberate_ms == 0) { // 如果设置的振动时间大于总周期，强制设置为总周期
+    state_ = IDLE;
+    return;
+  }
   silient_ms_ = total_period_ - viberate_ms_; // 自动计算静音时间
+  if (viberate_ms_ > 0) {
+    state_ = VIBERATING;
+    last_timestamp_ = millis();
+  }
+}
+
+// 注意：  viberate_ms 将强制设置为 0 ！
+void Motor::SetPeriod(int total_period)
+{
+  total_period_ = total_period;
+  viberate_ms_ = 0; // 强制设置为 0
+  silient_ms_ = total_period ;
+  state_ = IDLE;
 }

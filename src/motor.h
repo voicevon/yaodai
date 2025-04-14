@@ -13,12 +13,10 @@ public:
 
     Motor(int pin_num);
     void SpinOnce();
-    void Start();
-    void Stop();
-    void SetVibrate(int viberate_ms, int total_period); 
+    void SetVibrate(int viberate_ms); 
+    void SetPeriod(int total_period_ms); 
 
 private:
-    void Enable_(bool is_enable);
     
     int pin_num_;
     bool is_enabled_;
