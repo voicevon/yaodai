@@ -44,6 +44,20 @@ void stop_all_motors(){
 TwoWire my_bus_0(0);
 TwoWire my_bus_1(1);
 
+
+void touch_power_off(){
+	static int kept_touched_from = 0;
+	if(digitalRead(PIN_TOUCH) == HIGH){
+		if (millis() - kept_touched_from > 1000) {
+			// 如果触摸次数超过 1 秒，关闭系统，包括 ESP32
+			Serial.printf("touch is HIGH for 1 second, power off now.\n");
+			digitalWrite(PIN_POWER, HIGH);	// 高电平 关闭系统。
+		}
+	}else{	
+		kept_touched_from = millis();
+	}
+}
+
 void setup_mpu6050(TwoWire* wire, int addr, Adafruit_MPU6050* mpu) {
     // 检查 I2C 总线是否正常
     wire->beginTransmission(addr);
@@ -52,6 +66,7 @@ void setup_mpu6050(TwoWire* wire, int addr, Adafruit_MPU6050* mpu) {
             int bus_num = (wire == &my_bus_0) ? 0 : 1;
             Serial.printf("I2C bus %d error, device 0x%02X not found\n", bus_num, addr);
             delay(1000);
+			digitalWrite(PIN_POWER, HIGH);	// 高电平 关闭系统。
         }
     }
 
@@ -59,6 +74,7 @@ void setup_mpu6050(TwoWire* wire, int addr, Adafruit_MPU6050* mpu) {
         while (1){
             Serial.println("Failed to find MPU6050 chip  ");
             delay(1000);
+			digitalWrite(PIN_POWER, HIGH);	// 高电平 关闭系统。
         }
     }
     Serial.println("MPU6050 Found!");
@@ -67,6 +83,7 @@ void setup_mpu6050(TwoWire* wire, int addr, Adafruit_MPU6050* mpu) {
     mpu->setGyroRange(MPU6050_RANGE_500_DEG);
     mpu->setFilterBandwidth(MPU6050_BAND_21_HZ);
 }
+
 
 
 void setup() {
@@ -178,18 +195,6 @@ void loop_test_touch_leds(){
 	}
 }
 
-void touch_power_off(){
-	static int kept_touched_from = 0;
-	if(digitalRead(PIN_TOUCH) == HIGH){
-		if (millis() - kept_touched_from > 1000) {
-			// 如果触摸次数超过 1 秒，关闭系统，包括 ESP32
-			Serial.printf("touch is HIGH for 1 second, power off now.\n");
-			digitalWrite(PIN_POWER, HIGH);	// 高电平 关闭系统。
-		}
-	}else{	
-		kept_touched_from = millis();
-	}
-}
 
 
 #define Z_THRESHOLD 10  // Z 分量阈值  
@@ -201,9 +206,12 @@ void loop() {
 
     static unsigned long last_read_time = 0;
     const unsigned long read_interval = 100; // 设置读取间隔
+
+	touch_power_off();
 	motor_front.SpinOnce();
 	motor_rear.SpinOnce();
-
+	motor_left.SpinOnce();
+	motor_right.SpinOnce();
 
     if (millis() - last_read_time <= read_interval) {
 		return;
@@ -218,23 +226,40 @@ void loop() {
 	//     Serial.printf("getEvent()  time: %lu ms\n", elapsed_time);  // 打印运行时间
 
     int z = a.acceleration.z * 100;
-    if (abs(z) > Z_THRESHOLD) {  // 使用 Z 分量
-        // int vibrate_ms = map(abs(z), Z_THRESHOLD, 1000, 100, 1000); // 将 Z 分量映射到振动时间
-        int vibrate_ms = abs(z); // 将 Z 分量映射到振动时间
-		// Serial.printf("z = %d,  vib_ms= %d \n", z, vibrate_ms);
-		if (vibrate_ms > 800){
-			vibrate_ms = 800;
-		}
-        if (z < 0) {  // 正向加速度
+    int x = a.acceleration.x * 100;  // 添加 X 分量处理
+
+    if (abs(z) > Z_THRESHOLD) {
+        int vibrate_ms = abs(z);
+        if (vibrate_ms > 800) {
+            vibrate_ms = 800;
+        }
+        if (z < 0) {
             motor_front.SetVibrate(vibrate_ms);
             motor_rear.SetVibrate(0);
-        } else {  // 负向加速度
+        } else {
             motor_front.SetVibrate(0);
             motor_rear.SetVibrate(vibrate_ms);
         }
-    } else {  // Z 分量接近零时停止
+    } else {
         motor_front.SetVibrate(0);
         motor_rear.SetVibrate(0);
+    }
+
+    if (abs(x) > Z_THRESHOLD) {  // 使用 X 分量
+        int vibrate_ms = abs(x);
+        if (vibrate_ms > 800) {
+            vibrate_ms = 800;
+        }
+        if (x < 0) {  // 负向加速度
+            motor_left.SetVibrate(vibrate_ms);
+            motor_right.SetVibrate(0);
+        } else {  // 正向加速度
+            motor_left.SetVibrate(0);
+            motor_right.SetVibrate(vibrate_ms);
+        }
+    } else {  // X 分量接近零时停止
+        motor_left.SetVibrate(0);
+        motor_right.SetVibrate(0);
     }
 
 
