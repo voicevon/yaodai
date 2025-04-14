@@ -23,8 +23,12 @@
 #define PIN_I2C_SCL 23
 
 #define PIN_DOCKER 27   
+#define PIN_BATTERY_ADC 4
 
-Adafruit_MPU6050 mpu;
+Adafruit_MPU6050 mpu_front;
+Adafruit_MPU6050 mpu_rear;
+Adafruit_MPU6050 mpu_left;
+Adafruit_MPU6050 mpu_right;
 Motor motor_front(PIN_MOTOR_FRONT);
 Motor motor_rear(PIN_MOTOR_REAR);
 Motor motor_left(PIN_MOTOR_LEFT);
@@ -40,10 +44,10 @@ void stop_all_motors(){
 TwoWire my_bus_0(0);
 TwoWire my_bus_1(1);
 
-void setup_mpu6050(TwoWire* wire, int addr) {
+void setup_mpu6050(TwoWire* wire, Adafruit_MPU6050* mpu, int addr) {
 	// Try to initialize!
 	// if (!mpu.begin(0x68, wire)) {
-	if (!mpu.begin(addr, wire)) {
+	if (!mpu->begin(addr, wire)) {
 	  Serial.println("Failed to find MPU6050 chip");
 	  while (1) {
 		delay(10);
@@ -52,9 +56,9 @@ void setup_mpu6050(TwoWire* wire, int addr) {
 	Serial.println("MPU6050 Found!");
   
   
-	mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+	mpu->setAccelerometerRange(MPU6050_RANGE_8_G);
 	Serial.print("Accelerometer range set to: ");
-	switch (mpu.getAccelerometerRange()) {
+	switch (mpu->getAccelerometerRange()) {
 	case MPU6050_RANGE_2_G:
 	  Serial.println("+-2G");
 	  break;
@@ -68,9 +72,9 @@ void setup_mpu6050(TwoWire* wire, int addr) {
 	  Serial.println("+-16G");
 	  break;
 	}
-	mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+	mpu->setGyroRange(MPU6050_RANGE_500_DEG);
 	Serial.print("Gyro range set to: ");
-	switch (mpu.getGyroRange()) {
+	switch (mpu->getGyroRange()) {
 	case MPU6050_RANGE_250_DEG:
 	  Serial.println("+- 250 deg/s");
 	  break;
@@ -86,9 +90,9 @@ void setup_mpu6050(TwoWire* wire, int addr) {
 	}
   
   
-	mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+	mpu->setFilterBandwidth(MPU6050_BAND_21_HZ);
 	Serial.print("Filter bandwidth set to: ");
-	switch (mpu.getFilterBandwidth()) {
+	switch (mpu->getFilterBandwidth()) {
 	case MPU6050_BAND_260_HZ:
 	  Serial.println("260 Hz");
 	  break;
@@ -134,6 +138,7 @@ void setup() {
 	pinMode(PIN_BUZZER, OUTPUT);
 	pinMode(PIN_TOUCH, INPUT);
 	pinMode(PIN_DOCKER, INPUT);
+	pinMode(PIN_BATTERY_ADC, INPUT);
 	stop_all_motors();
 	Serial.printf("pinMode is done.\n");
 
@@ -147,10 +152,10 @@ void setup() {
 	// if (Wire.beginTransmission(0x68) == 0) { // MPU6050 的 I2C 地址是 0x68
 	// 	Serial.println("MPU6050 found!");
 	// }		
-	setup_mpu6050(&my_bus_0, 0x68);  // 0x68 是 front 的地址    
-	// setup_mpu6050(&my_bus_0, 0x69);	// 0x69 是 right 的地址
-	// setup_mpu6050(&my_bus_1, 0x69);  // 0x69 是 rear 的地址
-	// setup_mpu6050(&my_bus_1, 0x68);  // 0x68 是 left 的地址
+	setup_mpu6050(&my_bus_0, &mpu_front, 0x68);  // 0x68 是 front 的地址    
+	setup_mpu6050(&my_bus_0, &mpu_right, 0x69);	// 0x69 是 right 的地址
+	setup_mpu6050(&my_bus_1, &mpu_rear, 0x69);  // 0x69 是 rear 的地址
+	setup_mpu6050(&my_bus_1, &mpu_left, 0x68);  // 0x68 是 left 的地址
 				
 
 	// 初始化完成
@@ -160,7 +165,7 @@ void setup() {
 void loop_test_mpu6050() {
 	/* Get new sensor events with the readings */
 	sensors_event_t a, g, temp;
-	mpu.getEvent(&a, &g, &temp);
+	mpu_front.getEvent(&a, &g, &temp);
   
   
 	/* Print out the values */
@@ -251,19 +256,51 @@ void touch_power_off(){
 	}
 }
 
+
+void loop_test_battery_adc(){
+    int adc = analogRead(PIN_BATTERY_ADC); 
+    float voltage = 7.12 * adc / 4095.0;  // 计算电压值
+    Serial.printf("battery adc = %d, voltage = %.2f V\n", adc, voltage);
+    delay(1000);
+
+	// 3.952V -->  1.975v -->2270
+
+}
+
+
+void loop_working(){
+    sensors_event_t a, g, temp;
+    mpu_front.getEvent(&a, &g, &temp);
+    
+    // 定义加速度范围和对应的震动频率
+    const float min_accel = -20.0f;  // 最小加速度值
+    const float max_accel = 20.0f;   // 最大加速度值
+    const int min_vibrate = 100;     // 最小震动时间 (ms)
+    const int max_vibrate = 500;     // 最大震动时间 (ms)
+    
+    // 将加速度值映射到震动频率
+    float z = constrain(a.acceleration.z, min_accel, max_accel);
+    int vibrate_ms = map(z * 100, min_accel * 100, max_accel * 100, min_vibrate, max_vibrate);
+    
+    // 根据方向选择电机
+    if (z > 1.0f) {  // 正向加速度
+        motor_front.SetVibrate(vibrate_ms, 500);
+        motor_front.Start();
+    } else if (z < -1.0f) {  // 负向加速度
+        motor_rear.SetVibrate(vibrate_ms, 500);
+        motor_rear.Start();
+    } else {  // 接近零时停止
+        motor_front.Stop();
+        motor_rear.Stop();
+    }
+}
+
+
 void loop() {
 	touch_power_off();
-	// loop_test_mpu6050();
-	loop_test_motors();
+	// loop_test_motors();
 	loop_test_touch_leds();
-
-
-	// sensors_event_t a, g, temp;
-	// mpu.getEvent(&a, &g, &temp);
-	// if (a.acceleration.x > 10) {
-	// 	motor_front.Start();
-	// }else if(a.acceleration.x < -10){
-	// 	motor_front.Stop();	
-	// }
+	loop_test_battery_adc();
+	// loop_working();
 }
   
