@@ -24,11 +24,15 @@
 
 #define PIN_DOCKER 27   
 
-Adafruit_MPU6050 mpu;
-Motor motor_front(PIN_MOTOR_FRONT);
-Motor motor_rear(PIN_MOTOR_REAR);
-Motor motor_left(PIN_MOTOR_LEFT);
-Motor motor_right(PIN_MOTOR_RIGHT);
+Adafruit_MPU6050 mpu_front;
+Adafruit_MPU6050 mpu_rear;
+Adafruit_MPU6050 mpu_left;
+Adafruit_MPU6050 mpu_right;
+
+Motor motor_front(PIN_MOTOR_FRONT, 1000);
+Motor motor_rear(PIN_MOTOR_REAR, 1000);
+Motor motor_left(PIN_MOTOR_LEFT, 1000);
+Motor motor_right(PIN_MOTOR_RIGHT, 1000);
 
 void stop_all_motors(){
 	motor_front.Stop();
@@ -40,88 +44,30 @@ void stop_all_motors(){
 TwoWire my_bus_0(0);
 TwoWire my_bus_1(1);
 
-void setup_mpu6050(TwoWire* wire, int addr) {
-	// Try to initialize!
-	// if (!mpu.begin(0x68, wire)) {
-	if (!mpu.begin(addr, wire)) {
-	  Serial.println("Failed to find MPU6050 chip");
-	  while (1) {
-		delay(10);
-	  }
-	}
-	Serial.println("MPU6050 Found!");
-  
-  
-	mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
-	Serial.print("Accelerometer range set to: ");
-	switch (mpu.getAccelerometerRange()) {
-	case MPU6050_RANGE_2_G:
-	  Serial.println("+-2G");
-	  break;
-	case MPU6050_RANGE_4_G:
-	  Serial.println("+-4G");
-	  break;
-	case MPU6050_RANGE_8_G:
-	  Serial.println("+-8G");
-	  break;
-	case MPU6050_RANGE_16_G:
-	  Serial.println("+-16G");
-	  break;
-	}
-	mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-	Serial.print("Gyro range set to: ");
-	switch (mpu.getGyroRange()) {
-	case MPU6050_RANGE_250_DEG:
-	  Serial.println("+- 250 deg/s");
-	  break;
-	case MPU6050_RANGE_500_DEG:
-	  Serial.println("+- 500 deg/s");
-	  break;
-	case MPU6050_RANGE_1000_DEG:
-	  Serial.println("+- 1000 deg/s");
-	  break;
-	case MPU6050_RANGE_2000_DEG:
-	  Serial.println("+- 2000 deg/s");
-	  break;
-	}
-  
-  
-	mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
-	Serial.print("Filter bandwidth set to: ");
-	switch (mpu.getFilterBandwidth()) {
-	case MPU6050_BAND_260_HZ:
-	  Serial.println("260 Hz");
-	  break;
-	case MPU6050_BAND_184_HZ:
-	  Serial.println("184 Hz");
-	  break;
-	case MPU6050_BAND_94_HZ:
-	  Serial.println("94 Hz");
-	  break;
-	case MPU6050_BAND_44_HZ:
-	  Serial.println("44 Hz");
-	  break;
-	case MPU6050_BAND_21_HZ:
-	  Serial.println("21 Hz");
-	  break;
-	case MPU6050_BAND_10_HZ:
-	  Serial.println("10 Hz");
-	  break;
-	case MPU6050_BAND_5_HZ:
-	  Serial.println("5 Hz");
-	  break;
-	}
-  
+void setup_mpu6050(TwoWire* wire, int addr, Adafruit_MPU6050* mpu) {
+    // 检查 I2C 总线是否正常
+    wire->beginTransmission(addr);
+    if (wire->endTransmission() != 0) {
+        while (1) {
+            int bus_num = (wire == &my_bus_0) ? 0 : 1;
+            Serial.printf("I2C bus %d error, device 0x%02X not found\n", bus_num, addr);
+            delay(1000);
+        }
+    }
 
-  }
+    if (!mpu->begin(addr, wire)) {
+        while (1){
+            Serial.println("Failed to find MPU6050 chip  ");
+            delay(1000);
+        }
+    }
+    Serial.println("MPU6050 Found!");
 
-void setup_motors(){
-	motor_front.SetVibrate(200, 500);	
-	motor_rear.SetVibrate(200, 500);
-	motor_left.SetVibrate(200, 500);
-	motor_right.SetVibrate(200, 500);
-	
+    mpu->setAccelerometerRange(MPU6050_RANGE_8_G);
+    mpu->setGyroRange(MPU6050_RANGE_500_DEG);
+    mpu->setFilterBandwidth(MPU6050_BAND_21_HZ);
 }
+
 
 void setup() {
 	Serial.begin(115200);
@@ -143,14 +89,11 @@ void setup() {
 
 	my_bus_1.begin(17, 16); 
 	my_bus_1.setClock(100000); // 100kHz
-	// 检查 I2C 总线是否正常
-	// if (Wire.beginTransmission(0x68) == 0) { // MPU6050 的 I2C 地址是 0x68
-	// 	Serial.println("MPU6050 found!");
-	// }		
-	setup_mpu6050(&my_bus_0, 0x68);  // 0x68 是 front 的地址    
-	// setup_mpu6050(&my_bus_0, 0x69);	// 0x69 是 right 的地址
-	// setup_mpu6050(&my_bus_1, 0x69);  // 0x69 是 rear 的地址
-	// setup_mpu6050(&my_bus_1, 0x68);  // 0x68 是 left 的地址
+	
+	setup_mpu6050(&my_bus_0, 0x68, &mpu_front);  // 0x68 是 front 的地址    
+	setup_mpu6050(&my_bus_0, 0x69, &mpu_right);	// 0x69 是 right 的地址
+	// setup_mpu6050(&my_bus_1, 0x69, &mpu_rear);  // 0x69 是 rear 的地址
+	// setup_mpu6050(&my_bus_1, 0x68, &mpu_left);  // 0x68 是 left 的地址
 				
 
 	// 初始化完成
@@ -160,7 +103,7 @@ void setup() {
 void loop_test_mpu6050() {
 	/* Get new sensor events with the readings */
 	sensors_event_t a, g, temp;
-	mpu.getEvent(&a, &g, &temp);
+	mpu_front.getEvent(&a, &g, &temp);
   
   
 	/* Print out the values */
@@ -190,8 +133,6 @@ void loop_test_mpu6050() {
 	Serial.println("");
 	delay(500);
 }
-
-
 
 void loop_test_motors(){
 	#define VIB_TIME 50
@@ -235,7 +176,6 @@ void loop_test_touch_leds(){
 	}else{	
 		digitalWrite(PIN_LED_B, HIGH);
 	}
-
 }
 
 void touch_power_off(){
@@ -251,19 +191,59 @@ void touch_power_off(){
 	}
 }
 
+
+#define Z_THRESHOLD 10  // Z 分量阈值  
+
 void loop() {
-	touch_power_off();
-	// loop_test_mpu6050();
-	loop_test_motors();
-	loop_test_touch_leds();
+
+	unsigned long start_time = millis();
 
 
-	// sensors_event_t a, g, temp;
-	// mpu.getEvent(&a, &g, &temp);
-	// if (a.acceleration.x > 10) {
-	// 	motor_front.Start();
-	// }else if(a.acceleration.x < -10){
-	// 	motor_front.Stop();	
-	// }
+    static unsigned long last_read_time = 0;
+    const unsigned long read_interval = 100; // 设置读取间隔
+	motor_front.SpinOnce();
+	motor_rear.SpinOnce();
+
+
+    if (millis() - last_read_time <= read_interval) {
+		return;
+	}
+	last_read_time = millis();
+
+	sensors_event_t a, g, temp;
+	mpu_front.getEvent(&a, &g, &temp);	// 频繁出现：  读取时间 1002 ms
+    // unsigned long end_time = millis();  // 记录结束时间
+    // unsigned long elapsed_time = end_time - start_time;  // 计算运行时间
+	// if (elapsed_time > 200) {
+	//     Serial.printf("getEvent()  time: %lu ms\n", elapsed_time);  // 打印运行时间
+
+    int z = a.acceleration.z * 100;
+    if (abs(z) > Z_THRESHOLD) {  // 使用 Z 分量
+        // int vibrate_ms = map(abs(z), Z_THRESHOLD, 1000, 100, 1000); // 将 Z 分量映射到振动时间
+        int vibrate_ms = abs(z); // 将 Z 分量映射到振动时间
+		// Serial.printf("z = %d,  vib_ms= %d \n", z, vibrate_ms);
+		if (vibrate_ms > 800){
+			vibrate_ms = 800;
+		}
+        if (z < 0) {  // 正向加速度
+            motor_front.SetVibrate(vibrate_ms);
+            motor_rear.SetVibrate(0);
+        } else {  // 负向加速度
+            motor_front.SetVibrate(0);
+            motor_rear.SetVibrate(vibrate_ms);
+        }
+    } else {  // Z 分量接近零时停止
+        motor_front.SetVibrate(0);
+        motor_rear.SetVibrate(0);
+    }
+
+
+
+   unsigned long end_time2 = millis();  // 记录结束时间
+    unsigned long elapsed_time2 = end_time2 - start_time;  // 计算运行时间
+	if (elapsed_time2 > 200) {
+	    Serial.printf("Loop execution time: %lu ms\n", elapsed_time2);  // 打印运行时间
+	}
+	
+
 }
-  
